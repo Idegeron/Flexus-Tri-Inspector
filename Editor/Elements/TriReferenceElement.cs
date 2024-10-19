@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Linq;
 using TriInspector.Utilities;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace TriInspector.Elements
 {
@@ -96,6 +98,29 @@ namespace TriInspector.Elements
                 {
                     TriManagedReferenceGui.DrawTypeSelector(headerRect, _property);
                 }
+                
+                if (Event.current.type == EventType.DragUpdated && headerRect.Contains(Event.current.mousePosition))
+                {
+                    DragAndDrop.visualMode = DragAndDrop.objectReferences.All(obj => TryGetDragAndDropObject(obj, out _))
+                        ? DragAndDropVisualMode.Copy
+                        : DragAndDropVisualMode.Rejected;
+
+                    Event.current.Use();
+                }
+                else if (Event.current.type == EventType.DragPerform && headerRect.Contains(Event.current.mousePosition))
+                {
+                    DragAndDrop.AcceptDrag();
+
+                    foreach (var obj in DragAndDrop.objectReferences)
+                    {
+                        if (TryGetDragAndDropObject(obj, out var addedReferenceValue))
+                        {
+                            _property.SetValue(addedReferenceValue);
+                        }
+                    }
+
+                    Event.current.Use();
+                }
 
                 using (TriGuiHelper.PushLabelWidth(_props.labelWidth))
                 {
@@ -109,6 +134,29 @@ namespace TriInspector.Elements
                 if (_showReferencePicker)
                 {
                     TriManagedReferenceGui.DrawTypeSelector(headerFieldRect, _property);
+                }
+                
+                if (Event.current.type == EventType.DragUpdated && headerFieldRect.Contains(Event.current.mousePosition))
+                {
+                    DragAndDrop.visualMode = DragAndDrop.objectReferences.All(obj => TryGetDragAndDropObject(obj, out _))
+                        ? DragAndDropVisualMode.Copy
+                        : DragAndDropVisualMode.Rejected;
+
+                    Event.current.Use();
+                }
+                else if (Event.current.type == EventType.DragPerform && headerFieldRect.Contains(Event.current.mousePosition))
+                {
+                    DragAndDrop.AcceptDrag();
+
+                    foreach (var obj in DragAndDrop.objectReferences)
+                    {
+                        if (TryGetDragAndDropObject(obj, out var addedReferenceValue))
+                        {
+                            _property.SetValue(addedReferenceValue);
+                        }
+                    }
+
+                    Event.current.Use();
                 }
 
                 if (_property.IsExpanded)
@@ -155,6 +203,34 @@ namespace TriInspector.Elements
             RemoveAllChildren();
 
             return true;
+        }
+        
+        private bool TryGetDragAndDropObject(Object obj, out Object result)
+        {
+            if (obj == null)
+            {
+                result = null;
+                return false;
+            }
+
+            var elementType = _property.FieldType;
+            var objType = obj.GetType();
+
+            if (elementType == objType || elementType.IsAssignableFrom(objType))
+            {
+                result = obj;
+                return true;
+            }
+
+            if (obj is GameObject go && typeof(Component).IsAssignableFrom(elementType) &&
+                go.TryGetComponent(elementType, out var component))
+            {
+                result = component;
+                return true;
+            }
+
+            result = null;
+            return false;
         }
     }
 }

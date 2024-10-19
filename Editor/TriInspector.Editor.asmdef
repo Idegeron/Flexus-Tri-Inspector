@@ -3,7 +3,8 @@
     "rootNamespace": "",
     "references": [
         "TriInspector",
-        "Unity.InternalAPIEditorBridge.013"
+        "Unity.InternalAPIEditorBridge.013",
+        "Flexus.Serialization"
     ],
     "includePlatforms": [
         "Editor"
