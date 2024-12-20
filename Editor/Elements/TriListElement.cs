@@ -22,9 +22,12 @@ namespace TriInspector.Elements
         private readonly Color _oddElementColor;
         private readonly Color _eventElementColor;
         private readonly Color _selectionElementColor;
+        private readonly int _maxItemsPerPage;
 
         private float _lastContentWidth;
-
+        private int _currentPage;
+        
+        protected int TotalPages => Mathf.CeilToInt((float)_reorderableListGui.count / _maxItemsPerPage);
         protected ReorderableList ListGui => _reorderableListGui;
 
         public TriListElement(TriProperty property)
@@ -37,12 +40,14 @@ namespace TriInspector.Elements
             _oddElementColor = EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.25f, 1f) : new Color(0.8f, 0.8f, 0.8f, 1f);
             _eventElementColor = EditorGUIUtility.isProSkin ? new Color(0.2f, 0.2f, 0.2f, 1f) : new Color(0.75f, 0.75f, 0.75f, 1f);
             _selectionElementColor = EditorGUIUtility.isProSkin ? new Color(0.243f, 0.49f, 0.905f, 0.5f) : new Color(0.243f, 0.49f, 0.905f, 0.3f);
+            _maxItemsPerPage = settings?.MaxItemPerPage ?? 50;
             _reorderableListGui = new ReorderableList(null, _property.ArrayElementType)
             {
                 draggable = settings?.Draggable ?? true,
                 displayAdd = settings == null || !settings.HideAddButton,
                 displayRemove = settings == null || !settings.HideRemoveButton,
                 drawHeaderCallback = DrawHeaderCallback,
+                drawFooterCallback = DrawFooterCallback,
                 elementHeightCallback = ElementHeightCallback,
                 drawElementCallback = DrawElementCallback,
                 drawElementBackgroundCallback = DrawElementBackgroundCallback,
@@ -67,7 +72,7 @@ namespace TriInspector.Elements
             }
             else if (_property.Value != null)
             {
-                _reorderableListGui.list = (IList) _property.Value;
+                _reorderableListGui.list = (IList)_property.Value;
             }
             else if (_reorderableListGui.list == null)
             {
@@ -185,13 +190,26 @@ namespace TriInspector.Elements
         {
             if (_property.TryGetSerializedProperty(out _))
             {
+                var currentIndex = reorderableList.index;
+                var startIndex = _currentPage * _maxItemsPerPage;
+                reorderableList.index = currentIndex + startIndex;
                 ReorderableListProxy.defaultBehaviours.DoRemoveButton(reorderableList);
+                reorderableList.index = Mathf.Clamp(currentIndex, 0, (_reorderableListGui.count - startIndex) - 1);
                 _property.NotifyValueChanged();
+                
+                if (_currentPage > TotalPages - 1)
+                {
+                    _currentPage = TotalPages - 1;
+
+                    ClearChildren();
+                    GenerateChildren();
+                }
+
                 return;
             }
 
             var template = CloneValue(_property);
-            var ind = reorderableList.index;
+            var ind = reorderableList.index + _currentPage * _maxItemsPerPage;
 
             _property.SetValues(targetIndex =>
             {
@@ -211,6 +229,11 @@ namespace TriInspector.Elements
 
                 return value;
             });
+            
+            if (_currentPage > TotalPages)
+            {
+                _currentPage = TotalPages;
+            }
         }
 
         private void ReorderCallback(ReorderableList list, int oldIndex, int newIndex)
@@ -257,7 +280,8 @@ namespace TriInspector.Elements
 
         private bool GenerateChildren()
         {
-            var count = _reorderableListGui.count;
+            var startIndex = _currentPage * _maxItemsPerPage;
+            var count = Mathf.Min(_maxItemsPerPage, _reorderableListGui.count - startIndex);
 
             if (ChildrenCount == count)
             {
@@ -266,7 +290,7 @@ namespace TriInspector.Elements
 
             while (ChildrenCount < count)
             {
-                var property = _property.ArrayElementProperties[ChildrenCount];
+                var property = _property.ArrayElementProperties[ChildrenCount + startIndex];
                 AddChild(CreateItemElement(property));
             }
 
@@ -341,10 +365,39 @@ namespace TriInspector.Elements
                 Event.current.Use();
             }
         }
+        
+        private void DrawFooterCallback(Rect rect)
+        {
+            if (TotalPages > 1)
+            {
+                if (GUI.Button(new Rect(rect.xMin, rect.yMin, 50, _reorderableListGui.footerHeight), "<") &&
+                    _currentPage > 0)
+                {
+                    _currentPage--;
+                        
+                    ClearChildren();
+                    GenerateChildren();
+                }
+
+                GUI.Label(new Rect(rect.xMin + 60, rect.yMin, 100, _reorderableListGui.footerHeight),
+                    $"Page {_currentPage + 1} of {TotalPages}");
+
+                if (GUI.Button(new Rect(rect.xMin + 170, rect.yMin, 50, _reorderableListGui.footerHeight),
+                        ">") && _currentPage < TotalPages - 1)
+                {
+                    _currentPage++;
+                        
+                    ClearChildren();
+                    GenerateChildren();
+                }
+            }
+            
+            ReorderableList.defaultBehaviours.DrawFooter(rect, _reorderableListGui);
+        }
 
         private void DrawElementCallback(Rect rect, int index, bool isActive, bool isFocused)
         {
-            if (index >= ChildrenCount)
+            if (index > ChildrenCount - 1)
             {
                 return;
             }
@@ -377,9 +430,9 @@ namespace TriInspector.Elements
 
         private float ElementHeightCallback(int index)
         {
-            if (index >= ChildrenCount)
+            if (index > ChildrenCount - 1)
             {
-                return EditorGUIUtility.singleLineHeight;
+                return 0;
             }
 
             return GetChild(index).GetHeight(_lastContentWidth);

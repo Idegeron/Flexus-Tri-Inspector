@@ -28,6 +28,7 @@ namespace TriInspector.Drawers
             private const float FooterExtraSpace = 4;
 
             private readonly TriProperty _triProperty;
+            private readonly bool _alwaysExpanded;
             private readonly Type _dictionaryType;
             private readonly Type _arrayElementType;
             private readonly TriProperty _keyTriProperty;
@@ -50,13 +51,13 @@ namespace TriInspector.Drawers
 
             public DictionaryElement(TriProperty triProperty)
             {
+                triProperty.TryGetAttribute<DictionaryDrawerSettingsAttribute>(out var settings);
+                
                 _triProperty = triProperty;
-                
+                _alwaysExpanded = settings?.AlwaysExpanded ?? false;
                 _dictionaryType = triProperty.Value != null ? triProperty.Value.GetType() : triProperty.ValueType;
-                
                 _arrayElementType = typeof(KeyValuePair<,>).MakeGenericType(_dictionaryType.GetGenericArguments()[0], 
                     _dictionaryType.GetGenericArguments()[1]);
-
                 _keyTriProperty = new TriProperty(triProperty.PropertyTree, null, new TriPropertyDefinition(null, null, 0, "Key", _arrayElementType.GenericTypeArguments[0],
                     (self, index) => _keyInstance,
                     (self, index, value) =>
@@ -65,7 +66,6 @@ namespace TriInspector.Drawers
                         return _keyInstance;
                     },
                     null, false), null);
-                
                 _valueTriProperty = new TriProperty(triProperty.PropertyTree, null, new TriPropertyDefinition(null, null, 1, "Value", _arrayElementType.GenericTypeArguments[1],
                     (self, index) => _valueInstance,
                     (self, index, value) =>
@@ -74,13 +74,9 @@ namespace TriInspector.Drawers
                         return _valueInstance;
                     },
                     null, false), null);
-                
                 _keyTriElement = new TriPropertyElement(_keyTriProperty);
-                
                 _valueTriElement = new TriPropertyElement(_valueTriProperty);
-
                 _list = (IList) Activator.CreateInstance(typeof(List<>).MakeGenericType(_arrayElementType));
-
                 _dictionary = (IDictionary) triProperty.Value;
                 
                 _reorderableList = new ReorderableList(null, _arrayElementType)
@@ -114,6 +110,11 @@ namespace TriInspector.Drawers
             {
                 var dirty = false;
 
+                if (_alwaysExpanded && !_triProperty.IsExpanded)
+                {
+                    _triProperty.IsExpanded = true;
+                }
+                
                 if (_triProperty.IsExpanded)
                 {
                     dirty |= GenerateChildren();
@@ -250,7 +251,14 @@ namespace TriInspector.Drawers
 
                 var content = _triProperty.DisplayNameContent;
                     
-                _triProperty.IsExpanded = EditorGUI.Foldout(rect, _triProperty.IsExpanded, content, true);
+                if (_alwaysExpanded)
+                {
+                    EditorGUI.LabelField(rect, _triProperty.DisplayNameContent);
+                }
+                else
+                {
+                    _triProperty.IsExpanded = EditorGUI.Foldout(rect, _triProperty.IsExpanded, content, true);
+                }
 
                 var label = _reorderableList.count == 0 ? "Empty" : $"{_reorderableList.count} items";
                 
@@ -532,10 +540,9 @@ namespace TriInspector.Drawers
         [Serializable]
         private class DictionaryTreeView : TreeView
         {
-            private const int MaxItemsPerPage = 50;
-            
             private readonly TriProperty _triProperty;
             private readonly TriElement _triElement;
+            private readonly int _maxItemsPerPage = 50;
             private readonly IList _list;
             private readonly ReorderableList _reorderableList;
             private readonly DictionaryTreeItemPropertyOverrideContext _dictionaryTreeItemPropertyOverrideContext;
@@ -544,15 +551,18 @@ namespace TriInspector.Drawers
             private bool _wasRendered;
             private int _currentPage;
 
-            private int TotalPages => Mathf.CeilToInt((float)_list.Count / MaxItemsPerPage);
+            private int TotalPages => Mathf.CeilToInt((float)_list.Count / _maxItemsPerPage);
             
             public Action<int> SelectionChangedCallback;
 
             public DictionaryTreeView(TriProperty triProperty, TriElement triElement, IList list, ReorderableList reorderableList)
                 : base(new TreeViewState(), new DictionaryColumnHeader())
             {
+                triProperty.TryGetAttribute<DictionaryDrawerSettingsAttribute>(out var settings);
+                
                 _triProperty = triProperty;
                 _triElement = triElement;
+                _maxItemsPerPage = settings?.MaxItemPerPage ?? 50;
                 _list = list;
                 _reorderableList = reorderableList;
                 _dictionaryTreeItemPropertyOverrideContext = new DictionaryTreeItemPropertyOverrideContext();
@@ -620,8 +630,8 @@ namespace TriInspector.Drawers
 
                 if (_triProperty.IsExpanded)
                 {
-                    var startIndex = _currentPage * MaxItemsPerPage;
-                    var endIndex = Mathf.Min(startIndex + MaxItemsPerPage, _list.Count);
+                    var startIndex = _currentPage * _maxItemsPerPage;
+                    var endIndex = Mathf.Min(startIndex + _maxItemsPerPage, _list.Count);
 
                     for (var index = startIndex; index < endIndex; index++)
                     {
@@ -665,7 +675,7 @@ namespace TriInspector.Drawers
                 }
 
                 var height = 0f;
-                var startIndex = _currentPage * MaxItemsPerPage;
+                var startIndex = _currentPage * _maxItemsPerPage;
                 var pageIndex = startIndex + row;
                 var rowElement = (DictionaryRowElement) _triElement.GetChild(pageIndex);
 
@@ -693,7 +703,7 @@ namespace TriInspector.Drawers
                     return;
                 }
                 
-                var startIndex = _currentPage * MaxItemsPerPage;
+                var startIndex = _currentPage * _maxItemsPerPage;
                 var pageIndex = startIndex + args.row;
                 var rowElement = (DictionaryRowElement) _triElement.GetChild(pageIndex);
                 
@@ -749,7 +759,7 @@ namespace TriInspector.Drawers
         {
             public override bool TryGetDisplayName(TriProperty property, out GUIContent displayName)
             {
-                var showLabels = property.TryGetAttribute(out ListDrawerSettingsAttribute settings) &&
+                var showLabels = property.TryGetAttribute(out DictionaryDrawerSettingsAttribute settings) &&
                                  settings.ShowElementLabels;
 
                 if (!showLabels)

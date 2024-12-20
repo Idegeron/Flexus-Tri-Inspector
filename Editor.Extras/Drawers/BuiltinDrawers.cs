@@ -2,6 +2,7 @@
 using TriInspector;
 using TriInspector.Drawers;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEditorInternal;
 using UnityEngine;
 
@@ -96,11 +97,82 @@ namespace TriInspector.Drawers
         }
     }
 
-    public class EnumDrawer : BuiltinDrawerBase<Enum>
+    public class EnumDrawer : TriValueDrawer<Enum>
     {
-        protected override Enum OnValueGUI(Rect position, GUIContent label, Enum value)
+        public override void OnGUI(Rect position, TriValue<Enum> propertyValue, TriElement next)
         {
-            return EditorGUI.EnumPopup(position, label, value);
+            var value = propertyValue.SmartValue;
+            var valueName = value != null ? value.ToString() : "[None]";
+            var valueNameContent = new GUIContent(valueName);
+
+            if (!propertyValue.Property.IsArrayElement && 
+                !propertyValue.Property.TryGetAttribute<HideLabelAttribute>(out var hideLabelAttribute))
+            {
+                position = EditorGUI.PrefixLabel(position, GUIUtility.GetControlID(FocusType.Passive), propertyValue.Property.DisplayNameContent);
+            }
+
+            if (EditorGUI.DropdownButton(position, valueNameContent, FocusType.Passive))
+            {
+                var dropdown = new EnumDropDown(propertyValue, new AdvancedDropdownState());
+                
+                dropdown.Show(position);
+
+                Event.current.Use();
+            }
+        }
+        
+        private class EnumDropDown : AdvancedDropdown 
+        {
+            private readonly TriValue<Enum> _propertyValue;
+            
+            public EnumDropDown(TriValue<Enum> propertyValue, AdvancedDropdownState state) : base(state)
+            {
+                _propertyValue = propertyValue;
+                
+                minimumSize = new Vector2(0, 175);
+            }
+
+            protected override AdvancedDropdownItem BuildRoot()
+            {
+                var root = new AdvancedDropdownItem(_propertyValue.SmartValue.GetType().Name);
+
+                var values = Enum.GetValues(_propertyValue.SmartValue.GetType());
+
+                foreach (var value in values)
+                {
+                    root.AddChild(new EnumItem(value as Enum));
+                }
+
+                return root;
+            }
+            
+            protected override void ItemSelected(AdvancedDropdownItem item)
+            {
+                if (!(item is EnumItem enumItem))
+                {
+                    return;
+                }
+
+                if (enumItem.Value == null)
+                {
+                    _propertyValue.SetValue(null);
+                }
+                else
+                {
+                    _propertyValue.SetValue(enumItem.Value);
+                }
+            }
+            
+            private class EnumItem : AdvancedDropdownItem
+            {
+                public Enum Value { get; }
+
+                public EnumItem(Enum value, Texture2D preview = null) : base(value.ToString())
+                {
+                    Value = value;
+                    icon = preview;
+                }
+            }
         }
     }
 

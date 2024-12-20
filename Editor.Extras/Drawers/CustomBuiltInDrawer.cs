@@ -20,7 +20,7 @@ namespace TriInspector.Drawers
                 var handler = ScriptAttributeUtilityProxy.GetHandler(serializedProperty);
 
                 var drawWithHandler = handler.hasPropertyDrawer ||
-                                      property.PropertyType == TriPropertyType.Primitive ||
+                                      (property.PropertyType == TriPropertyType.Primitive && !property.FieldType.IsEnum) ||
                                       TriUnityInspectorUtilities.MustDrawWithUnity(property);
 
                 if (drawWithHandler)
