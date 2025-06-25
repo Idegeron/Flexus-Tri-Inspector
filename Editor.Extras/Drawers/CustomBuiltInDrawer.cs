@@ -1,4 +1,5 @@
-﻿using TriInspector;
+﻿using System.Reflection;
+using TriInspector;
 using TriInspector.Drawers;
 using TriInspector.Editors;
 using TriInspector.Elements;
@@ -25,8 +26,10 @@ namespace TriInspector.Drawers
 
                 if (drawWithHandler)
                 {
-                    if (property.TryGetAttribute(out DrawWithUnityAttribute withUnityAttribute) &&
-                        withUnityAttribute.WithUiToolkit)
+                    var propertyHasAttribute = property.TryGetAttribute(out DrawWithUnityAttribute withUnityAttribute) && withUnityAttribute.WithUiToolkit;
+                    var typeHasAttribute = property.ValueType?.GetCustomAttribute<DrawWithUnityAttribute>() != null;
+                    
+                    if (propertyHasAttribute || typeHasAttribute)
                     {
                         handler.SetPreferredLabel(property.DisplayName);
 
