@@ -244,27 +244,27 @@ namespace TriInspector.Elements
 
         private void ReorderCallback(ReorderableList list, int oldIndex, int newIndex)
         {
-            if (_property.TryGetSerializedProperty(out _))
-            {
-                _property.NotifyValueChanged();
-                return;
-            }
+            if (oldIndex == newIndex) return;
 
-            var mainValue = _property.Value;
-
+            var property = list.serializedProperty;
+            property.MoveArrayElement(newIndex, oldIndex);
+            property.serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            
+            var indexOffset = _currentPageIndex * _maxItemsPerPage;
+            var correctedOldIndex = indexOffset + oldIndex;
+            var correctedNewIndex = indexOffset + newIndex;
+            
+            if(correctedNewIndex < indexOffset) correctedNewIndex =  indexOffset;
+            if(correctedNewIndex > indexOffset + _maxItemsPerPage - 1) correctedNewIndex = indexOffset + _maxItemsPerPage - 1;
+            
             _property.SetValues(targetIndex =>
             {
                 var value = (IList) _property.GetValue(targetIndex);
 
-                if (value == mainValue)
-                {
-                    return value;
-                }
-
-                var element = value[oldIndex];
+                var element = value[correctedOldIndex];
                 for (var index = 0; index < value.Count - 1; ++index)
                 {
-                    if (index >= oldIndex)
+                    if (index >= correctedOldIndex)
                     {
                         value[index] = value[index + 1];
                     }
@@ -272,13 +272,13 @@ namespace TriInspector.Elements
 
                 for (var index = value.Count - 1; index > 0; --index)
                 {
-                    if (index > newIndex)
+                    if (index > correctedNewIndex)
                     {
                         value[index] = value[index - 1];
                     }
                 }
 
-                value[newIndex] = element;
+                value[correctedNewIndex] = element;
 
                 return value;
             });
