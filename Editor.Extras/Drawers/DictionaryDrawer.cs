@@ -359,12 +359,16 @@ namespace TriInspector.Drawers
 
                     return value;
                 });
-            }
+            } 
 
             private TriProperty CreteTriProperty(int childIndex)
             {
-                var triProperty = new TriProperty(_triProperty.PropertyTree, null, new TriPropertyDefinition(null, null,
-                    0, string.Empty, _arrayElementType,
+                var currentItem = _list[childIndex];
+                var key = _arrayElementType.GetProperty("Key").GetValue(currentItem);
+                var uniqueName = $"[{childIndex}]_{key?.GetHashCode() ?? 0}";
+
+                var triProperty = new TriProperty(_triProperty.PropertyTree, _triProperty, new TriPropertyDefinition(null, null,
+                    0, uniqueName, _arrayElementType,
                     (self, index) => _list[childIndex],
                     (self, index, value) =>
                     {
@@ -372,13 +376,13 @@ namespace TriInspector.Drawers
                         var newValue = _arrayElementType.GetProperty("Value").GetValue(value);
 
                         _dictionary[key] = newValue;
-                     
+
                         _list[childIndex] = value;
-                        
+
                         return value;
                     },
-                    null, false), null);
-                
+                    null, false), childIndex, null);
+
                 return triProperty;
             }
             
