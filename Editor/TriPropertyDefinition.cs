@@ -182,8 +182,8 @@ namespace TriInspector
                 return false;
             }
 
-            parentValue = _valueSetter?.Invoke(property, targetIndex, value);
-            return true;
+            parentValue = _valueSetter?.Invoke(property, targetIndex, value);           
+            return parentValue != null;
         }
 
         public TriPropertyDefinition ArrayElementDefinition
