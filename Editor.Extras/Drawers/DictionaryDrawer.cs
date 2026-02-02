@@ -359,7 +359,7 @@ namespace TriInspector.Drawers
 
                     return value;
                 });
-            } 
+            }
 
             private TriProperty CreteTriProperty(int childIndex)
             {
@@ -379,7 +379,7 @@ namespace TriInspector.Drawers
 
                         _list[childIndex] = value;
 
-                        return value;
+                        return null;
                     },
                     null, false), childIndex, null);
 

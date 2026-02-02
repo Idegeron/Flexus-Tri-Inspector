@@ -247,6 +247,13 @@ namespace TriInspector.Elements
             if (oldIndex == newIndex) return;
 
             var property = list.serializedProperty;
+
+            if (property == null)
+            {
+                _property.NotifyValueChanged();
+                return;
+            }
+            
             property.MoveArrayElement(newIndex, oldIndex);
             property.serializedObject.ApplyModifiedPropertiesWithoutUndo();
             
