@@ -42,6 +42,11 @@ namespace TriInspectorUnityInternalBridge
 
         public float GetHeight(SerializedProperty property, GUIContent label, bool includeChildren)
         {
+            if (!_handler.skipDecoratorDrawers && _handler.decoratorDrawers != null)
+            {
+                return EditorGUI.GetPropertyHeight(property, label, includeChildren);
+            }
+            
             return _handler.GetHeight(property, label, includeChildren);
         }
 
