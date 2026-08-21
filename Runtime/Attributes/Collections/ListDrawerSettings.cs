@@ -1,7 +1,5 @@
-﻿using System;
+using System;
 using System.Diagnostics;
-using UnityEditor;
-using UnityEngine;
 
 namespace TriInspector
 {
@@ -16,5 +14,7 @@ namespace TriInspector
         public bool AlwaysElementsExpanded { get; set; }
         public bool ShowElementLabels { get; set; }
         public int MaxItemPerPage { get; set; } = 50;
+        public bool ShowDefaultBackground { get; set; } = true;
+        public bool ShowAlternatingBackground { get; set; } = true;
     }
 }

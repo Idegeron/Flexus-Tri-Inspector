@@ -55,15 +55,32 @@ namespace TriInspector.Elements
             var oldEnabled = GUI.enabled;
 
             EditorGUI.showMixedValue = _property.IsValueMixed;
-            
-            using (TriPropertyOverrideContext.BeginProperty())
+            var overrideContext = TriPropertyOverrideContext.BeginProperty();
+
             using (TriPropertyOverrideAvailability.BeginProperty())
             {
                 GUI.enabled &= _property.IsEnabled;
 
-                base.OnGUI(position);
+                var hasSerializedProperty = _property.TryGetSerializedProperty(out var serializedProperty);
+                if (hasSerializedProperty)
+                {
+                    EditorGUI.BeginProperty(position, null, serializedProperty);
+                }
+
+                try
+                {
+                    base.OnGUI(position);
+                }
+                finally
+                {
+                    if (hasSerializedProperty)
+                    {
+                        EditorGUI.EndProperty();
+                    }
+                }
             }
 
+            overrideContext.EndProperty();
             EditorGUI.showMixedValue = oldShowMixedValue;
             GUI.enabled = oldEnabled;
         }

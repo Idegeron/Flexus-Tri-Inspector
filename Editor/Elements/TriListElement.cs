@@ -22,13 +22,14 @@ namespace TriInspector.Elements
         private readonly Color _oddElementColor;
         private readonly Color _eventElementColor;
         private readonly Color _selectionElementColor;
+        private readonly bool _showAlternatingBackground;
         private readonly int _maxItemsPerPage;
 
         private float _lastContentWidth;
         private int _currentPageIndex;
 
         protected int CurrentPage => _currentPageIndex + 1;
-        protected int TotalPages => Mathf.CeilToInt((float)_reorderableListGui.count / _maxItemsPerPage);
+        protected int TotalPages => Mathf.Max(1, Mathf.CeilToInt((float) _reorderableListGui.count / _maxItemsPerPage));
         protected ReorderableList ListGui => _reorderableListGui;
 
         public TriListElement(TriProperty property)
@@ -41,9 +42,11 @@ namespace TriInspector.Elements
             _oddElementColor = EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.25f, 1f) : new Color(0.8f, 0.8f, 0.8f, 1f);
             _eventElementColor = EditorGUIUtility.isProSkin ? new Color(0.2f, 0.2f, 0.2f, 1f) : new Color(0.75f, 0.75f, 0.75f, 1f);
             _selectionElementColor = EditorGUIUtility.isProSkin ? new Color(0.243f, 0.49f, 0.905f, 0.5f) : new Color(0.243f, 0.49f, 0.905f, 0.3f);
-            _maxItemsPerPage = settings?.MaxItemPerPage ?? 50;
+            _showAlternatingBackground = settings?.ShowAlternatingBackground ?? true;
+            _maxItemsPerPage = Mathf.Max(1, settings?.MaxItemPerPage ?? 50);
             _reorderableListGui = new ReorderableList(null, _property.ArrayElementType)
             {
+                showDefaultBackground = settings?.ShowDefaultBackground ?? true,
                 draggable = settings?.Draggable ?? true,
                 displayAdd = settings == null || !settings.HideAddButton,
                 displayRemove = settings == null || !settings.HideRemoveButton,
@@ -89,6 +92,7 @@ namespace TriInspector.Elements
 
             if (_property.IsExpanded)
             {
+                ClampCurrentPage(_reorderableListGui.count);
                 dirty |= GenerateChildren();
             }
             else
@@ -291,10 +295,65 @@ namespace TriInspector.Elements
             });
         }
 
+        private void SetArraySizeCallback(int arraySize)
+        {
+            if (arraySize < 0)
+            {
+                return;
+            }
+
+            if (_property.TryGetSerializedProperty(out var serializedProperty))
+            {
+                serializedProperty.arraySize = arraySize;
+                ClampCurrentPage(arraySize);
+                ClearChildren();
+                _property.NotifyValueChanged();
+                return;
+            }
+
+            var template = CloneValue(_property);
+
+            _property.SetValues(targetIndex =>
+            {
+                var value = (IList) _property.GetValue(targetIndex);
+
+                if (_property.FieldType.IsArray)
+                {
+                    var array = Array.CreateInstance(_property.ArrayElementType, arraySize);
+                    Array.Copy(template, array, Math.Min(arraySize, template.Length));
+
+                    value = array;
+                }
+                else
+                {
+                    if (value == null)
+                    {
+                        value = (IList) Activator.CreateInstance(_property.FieldType);
+                    }
+
+                    while (value.Count > arraySize)
+                    {
+                        value.RemoveAt(value.Count - 1);
+                    }
+
+                    while (value.Count < arraySize)
+                    {
+                        var newElement = CreateDefaultElementValue(_property);
+                        value.Add(newElement);
+                    }
+                }
+
+                return value;
+            });
+
+            ClampCurrentPage(arraySize);
+            ClearChildren();
+        }
+
         private bool GenerateChildren()
         {
             var startIndex = _currentPageIndex * _maxItemsPerPage;
-            var count = Mathf.Min(_maxItemsPerPage, _reorderableListGui.count - startIndex);
+            var count = Mathf.Max(0, Mathf.Min(_maxItemsPerPage, _reorderableListGui.count - startIndex));
 
             if (ChildrenCount == count)
             {
@@ -313,6 +372,12 @@ namespace TriInspector.Elements
             }
 
             return true;
+        }
+
+        private void ClampCurrentPage(int itemCount)
+        {
+            var totalPages = Mathf.Max(1, Mathf.CeilToInt((float) itemCount / _maxItemsPerPage));
+            _currentPageIndex = Mathf.Clamp(_currentPageIndex, 0, totalPages - 1);
         }
 
         private bool ClearChildren()
@@ -337,10 +402,13 @@ namespace TriInspector.Elements
 
         private void DrawHeaderCallback(Rect rect)
         {
-            var labelRect = new Rect(rect);
+            var labelRect = new Rect(rect)
+            {
+                xMax = rect.xMax - 50,
+            };
             var arraySizeRect = new Rect(rect)
             {
-                xMin = rect.xMax - 100,
+                xMin = labelRect.xMax,
             };
 
             if (_alwaysExpanded)
@@ -352,8 +420,15 @@ namespace TriInspector.Elements
                 TriEditorGUI.Foldout(labelRect, _property);
             }
 
-            var label = _reorderableListGui.count == 0 ? "Empty" : $"{_reorderableListGui.count} items";
-            GUI.Label(arraySizeRect, label, Styles.ItemsCount);
+            EditorGUI.BeginChangeCheck();
+
+            var newArraySize = EditorGUI.DelayedIntField(arraySizeRect, _reorderableListGui.count);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                SetArraySizeCallback(newArraySize);
+                return;
+            }
 
             if (Event.current.type == EventType.DragUpdated && rect.Contains(Event.current.mousePosition))
             {
@@ -428,16 +503,23 @@ namespace TriInspector.Elements
         
         private void DrawElementBackgroundCallback(Rect rect, int index, bool isActive, bool isFocused)
         {
-            if (_reorderableListGui.count > 0)
+            if (_reorderableListGui.count <= 0)
             {
-                if (_reorderableListGui.index != index || !isFocused)
-                {
-                    EditorGUI.DrawRect(rect, index % 2 == 0 ? _oddElementColor : _eventElementColor);
-                }
-                else
-                {
-                    EditorGUI.DrawRect(rect, _selectionElementColor);
-                }
+                return;
+            }
+
+            if (_reorderableListGui.index == index && isFocused)
+            {
+                EditorGUI.DrawRect(rect, _selectionElementColor);
+            }
+            else if (_showAlternatingBackground)
+            {
+                EditorGUI.DrawRect(rect, index % 2 == 0 ? _oddElementColor : _eventElementColor);
+            }
+            else
+            {
+                ReorderableList.defaultBehaviours.DrawElementBackground(rect, index, isActive, isFocused,
+                    _reorderableListGui.draggable);
             }
         }
 
@@ -498,7 +580,7 @@ namespace TriInspector.Elements
         private class ListPropertyOverrideContext : TriPropertyOverrideContext
         {
             public static readonly ListPropertyOverrideContext Instance = new ListPropertyOverrideContext();
-            
+
             private readonly GUIContent _noneLabel = GUIContent.none;
 
             public override bool TryGetDisplayName(TriProperty property, out GUIContent displayName)
@@ -516,7 +598,7 @@ namespace TriInspector.Elements
                 return false;
             }
         }
- 
+
         private static class Styles
         {
             public static readonly GUIStyle ItemsCount;

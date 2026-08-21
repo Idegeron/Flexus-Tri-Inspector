@@ -1,26 +1,32 @@
 {
-    "name": "TriInspector.Editor.Extras",
-    "rootNamespace": "",
-    "references": [
-        "TriInspector",
-        "TriInspector.Editor",
-        "Unity.InternalAPIEditorBridge.013",
-        "Flexus.Serialization"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [
-        "Newtonsoft.Json.dll"
-    ],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false,
-    "internalsVisibleTo": [
-      "GameEngine.Others.Drawers"
-    ]
+  "name": "TriInspector.Editor.Extras",
+  "rootNamespace": "",
+  "references": [
+    "TriInspector",
+    "TriInspector.Editor",
+    "Unity.InternalAPIEditorBridge.013",
+    "Flexus.Serialization"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.modules.animation",
+      "expression": "0.0.1",
+      "define": "TRI_MODULE_ANIMATION"
+    }
+  ],
+  "noEngineReferences": false,
+  "internalsVisibleTo": [
+    "GameEngine.Others.Drawers"
+  ]
 }
