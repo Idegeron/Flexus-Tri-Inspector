@@ -4,7 +4,7 @@ _Advanced inspector attributes for Unity_
 
 ![Tri-Inspector-Demo](https://user-images.githubusercontent.com/26966368/187032895-8c41295b-dd82-40ad-80c3-1efaad202732.png)
 
-- [How to Install](#How-to-Install)
+- [Samples](#Samples)
 - [Attributes](#Attributes)
     - [Misc](#Misc)
     - [Validation](#Validation)
@@ -15,15 +15,116 @@ _Advanced inspector attributes for Unity_
     - [Buttons](#Buttons)
     - [Debug](#Debug)
     - [Groups](#Groups)
+- [Integrations](#Integrations) ([Odin Inspector](#Odin-Inspector), [Odin Validator](#Odin-Validator))
+- [How to Install](#How-to-Install)
 - [License](#License)
 - [Based On](#Based-On)
 
-## How to Install
+## Samples
 
-Library distributed as git package ([How to install package from git URL](https://docs.unity3d.com/Manual/upm-ui-giturl.html))
-<br>Git URL: `https://github.com/Idegeron/Flexus-Tri-Inspector.git`
+TriInspector has built-in samples at `Tools/Tri Inspector/Samples` menu.
+![Samples](https://user-images.githubusercontent.com/26966368/177045336-a3fcf438-3e70-45d0-b753-299e577b2010.png)
 
 ## Attributes
+
+<table>
+    <tr>
+        <td><a href="#Misc"><b>General →</b></a></td>
+        <td><a href="#Validation"><b>Validation →</b></a></td>
+        <td><a href="#Decorators"><b>Decorators →</b></a></td>
+        <td><a href="#Styling"><b>Styling →</b></a></td>
+    </tr>
+    <tr>
+        <td valign="top">
+            <ul>
+                <li>Show In Inspector</li>
+                <li>Inline Property</li>
+                <li>Hide Reference Picker</li>
+                <li>Property Order</li>
+                <li>Read Only</li>
+                <li>On Value Changed</li>
+                <li>Hide Mono Script</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>Required</li>
+                <li>Required Get</li>
+                <li>Validate Input</li>
+                <li>Info Box</li>
+                <li>Assets Only</li>
+                <li>Scene Objects Only</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>Dropdown</li>
+                <li>Asset Dropdown</li>
+                <li>Scene</li>
+                <li>Animator Parameter</li>
+                <li>Material Property</li>
+                <li>Slider</li>
+                <li>Min Max Slider</li>
+                <li>Inline Editor</li>
+                <li>Display As String</li>
+                <li>Unit</li>
+                <li>Preview Object</li>
+                <li>Preview Mesh</li>
+                <li>Layer</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>Title</li>
+                <li>Label Text</li>
+                <li>Hide Label</li>
+                <li>GUI Color</li>
+                <li>Label Width</li>
+                <li>Indent</li>
+                <li>Property Space</li>
+                <li>Property Tooltip</li>
+            </ul>
+        </td>
+    </tr>
+    <tr>
+        <td><a href="#Groups"><b>Groups →</b></a></td>
+        <td><a href="#Conditionals"><b>Conditionals →</b></a></td>
+        <td><a href="#Collections"><b>Collections →</b></a></td>
+        <td><a href="#Buttons"><b>Buttons →</b></a></td>
+    </tr>
+    <tr>
+        <td valign="top">
+            <ul>
+                <li>Box Group</li>
+                <li>Foldout Group</li>
+                <li>Toggle Group</li>
+                <li>Tab Group</li>
+                <li>Horizontal Group</li>
+                <li>Vertical Group</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>Show/Hide If</li>
+                <li>Enable/Disable If</li>
+                <li>Show/Hide In Play Mode</li>
+                <li>Enable/Disable In Play Mode</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>List Drawer Settings</li>
+                <li>Table List</li>
+            </ul>
+        </td>
+        <td valign="top">
+            <ul>
+                <li>Button</li>
+                <li>Enum Toggle Buttons</li>
+            </ul>
+        </td>
+    </tr>
+</table>
 
 ### Misc
 
@@ -47,6 +148,24 @@ public float EditableProperty
 {
     get => _field;
     set => _field = value;
+}
+```
+
+#### InlineProperty
+
+![InlineProperty](https://user-images.githubusercontent.com/26966368/168234909-1e6bec90-18ed-4d56-91ca-fe09118e1b72.png)
+
+```csharp
+public MinMax rangeFoldout;
+
+[InlineProperty(LabelWidth = 40)]
+public MinMax rangeInline;
+
+[Serializable]
+public class MinMax
+{
+    public int min;
+    public int max;
 }
 ```
 
@@ -103,7 +222,7 @@ Invokes callback on property modification.
 
 ```csharp
 [OnValueChanged(nameof(OnMaterialChanged))]
-public Material mat; 
+public Material mat;
 
 private void OnMaterialChanged()
 {
@@ -143,6 +262,21 @@ private void FixTarget()
 {
     target = GetComponent<Transform>();
 }
+```
+
+#### RequiredGet
+
+![RequiredGet](https://github.com/user-attachments/assets/956ef00b-79c8-4aea-9537-5e8e74fb6f9b)
+
+```csharp
+[RequiredGet]
+public Transform myTransform;
+
+[RequiredGet(InParents = true)]
+public Animator animator; // Search for any Animator in parents
+
+[RequiredGet(InChildren = true, IncludeSelf = false)]
+public MeshRenderer[] childrenMeshes; // Search all meshes in children
 ```
 
 #### ValidateInput
@@ -240,6 +374,89 @@ private IEnumerable<TriDropdownItem<Vector3>> GetVectorValues()
 [Scene] public string scene;
 ```
 
+#### AnimatorParameter
+
+`AnimatorParameter` automatically lists all available parameters from the target Animator, with optional filtering by parameter type.
+
+![AnimatorParameter](https://github.com/user-attachments/assets/9cd8837e-3d78-4b5f-808f-27bf16635099)
+
+```csharp
+[AnimatorParameter(nameof(animator))]
+public string parameterName;
+
+[AnimatorParameter(nameof(animator), AnimatorControllerParameterType.Float)]
+public int parameterHash;
+
+public Animator animator;
+```
+
+#### MaterialProperty
+
+`MaterialProperty` automatically displays valid shader properties from the target Material, including support for specific types (Float, Color, Vector, Texture, etc.).
+
+![MaterialProperty](https://github.com/user-attachments/assets/09eab958-aa13-43c6-a780-4a2d4d2704bb)
+
+```csharp
+[MaterialProperty(nameof(material))]
+public string propertyName;
+
+[MaterialProperty(nameof(material), ShaderPropertyType.Color)]
+public int propertyHash;
+
+public Material material;
+```
+
+#### Slider
+
+![Slider](https://github.com/user-attachments/assets/4f56d7e6-0032-4037-b890-740a3f93cebe)
+
+```csharp
+[Slider(nameof(_min), nameof(_max))]
+public int dynamicIntSlider = -6;
+
+[Slider(0, nameof(GetMax))]
+public float dynamicMaxFloatSlider = 4.6f;
+
+public Vector2 minMax = new(-10, 10);
+
+[Slider(nameof(minMax))]
+public float dynamicFloatSlider = 1.83f;
+
+[Slider(nameof(minMax), autoClamp: true)]
+public int dynamicIntSliderClamped = 4;
+
+private int _min = -20;
+private int _max = 20;
+public float GetMax() => 10;
+```
+
+#### MinMaxSlider
+
+![MinMaxSlider](https://github.com/user-attachments/assets/44deaa4e-5e26-49f0-bc8a-b84b9f48f08a)
+
+```csharp
+[MinMaxSlider(0f, 10f)]
+public Vector2 fixedMinMaxSlider = new(2f, 4f);
+
+[MinMaxSlider(nameof(_min), nameof(_max))]
+public Vector2Int dynamicIntMinMaxSlider = new(-8, 0);
+
+[MinMaxSlider(-20, nameof(GetMax))]
+public Vector2 dynamicFloatMaxSlider = new(-7.7f, -1.7f);
+
+public Vector2 minMax = new(-10, 10);
+
+[MinMaxSlider(nameof(minMax))]
+public Vector2 dynamicFloatMinMaxSlider = new(0, 4);
+
+[MinMaxSlider(nameof(minMax), autoClamp: true)]
+public Vector2Int dynamicIntMinMaxSliderClamped = new(2, 6);
+
+private int _min = -20;
+private int _max = 20;
+public float GetMax() => 10;
+```
+
 #### InlineEditor
 
 ![InlineEditor](https://user-images.githubusercontent.com/26966368/168234617-86a7f500-e635-46f8-90f2-5696e5ae7e63.png)
@@ -256,6 +473,54 @@ public Material mat;
 ```csharp
 [DisplayAsString]
 public string[] collection = {"hello", "world"};
+```
+
+#### Unit
+
+![Unit](https://github.com/user-attachments/assets/ad355200-150b-4a03-9b96-255f966a097b)
+
+```csharp
+[Unit(UnitAttribute.Meter)]
+public float lengthInMeters;
+
+[Unit("My custom Unit")]
+public float freeTextUnit;
+```
+
+#### Preview Object
+
+![Preview Object](https://github.com/user-attachments/assets/339849d6-1491-4638-b099-7f3afe813dcb)
+
+```csharp
+[PreviewObject]
+public Texture2D texture;
+
+[PreviewObject(Height = 100)]
+public GameObject gameObj;
+```
+
+#### Preview Mesh
+
+![Preview Mesh](https://github.com/user-attachments/assets/329bb723-d2fc-4e18-97e6-f47706b0eb46)
+
+```csharp
+[LabelWidth(270f)]
+[PreviewMesh(100, 100)]
+public GameObject meshCustomLengthAndWidth;
+
+[LabelWidth(200f)]
+[PreviewMesh(200, 160, false)]
+public GameObject meshNoFoldoutNoMesh;
+
+[LabelWidth(200f)]
+[PreviewMesh(200, 160, false)]
+public GameObject meshNoFoldoutWithMesh;
+```
+
+#### Layer
+
+```csharp
+[Layer] public int layer;
 ```
 
 ### Styling
@@ -391,24 +656,6 @@ public Rect rect;
 public Vector3 vec;
 
 public string DynamicTooltip => DateTime.Now.ToShortTimeString();
-```
-
-#### InlineProperty
-
-![InlineProperty](https://user-images.githubusercontent.com/26966368/168234909-1e6bec90-18ed-4d56-91ca-fe09118e1b72.png)
-
-```csharp
-public MinMax rangeFoldout;
-
-[InlineProperty(LabelWidth = 40)]
-public MinMax rangeInline;
-
-[Serializable]
-public class MinMax
-{
-    public int min;
-    public int max;
-}
 ```
 
 ### Collections
@@ -639,7 +886,7 @@ public class FoldoutGroupSample : ScriptableObject
 {
     [Group("foldout")] public int a;
     [Group("foldout")] public bool b;
-    
+
     public string DynamicTitle => "My Foldout";
 }
 ```
@@ -655,7 +902,7 @@ public class ToggleGroupSample : ScriptableObject
     [Group("toggle")] public bool enabled;
     [Group("toggle")] public int a;
     [Group("toggle")] public bool b;
-    
+
     public string DynamicTitle => "My Toggle";
 }
 ```
@@ -709,6 +956,38 @@ public class VerticalGroupSample : ScriptableObject
     public void ButtonB() { }
 }
 ```
+## Integrations
+
+### Odin Inspector
+
+Tri Inspector is able to work in compatibility mode with Odin Inspector.
+In this mode, the primary interface will be drawn by the Odin Inspector. However,
+parts of the interface can be rendered by the Tri Inspector.
+
+In order for the interface to be rendered by Tri instead of Odin,
+it is necessary to mark classes with `[DrawWithTriInspector]` attribute.
+
+Alternatively, you can mark the entire assembly with an attribute `[assembly:DrawWithTriInspector]`
+to draw all types in the assembly using the Tri Inspector.
+
+### Odin Validator
+
+Tri Inspector is integrated with the Odin Validator
+so all validation results from Tri attributes will be shown
+in the Odin Validator window.
+
+![Odin-Validator-Integration](https://user-images.githubusercontent.com/26966368/169645537-d8f0b50f-46af-4804-95e8-337ff3b5ae83.png)
+
+## How to Install
+
+Library distributed as git package ([How to install package from git URL](https://docs.unity3d.com/Manual/upm-ui-giturl.html))
+<br>Git URL: `https://github.com/Idegeron/Flexus-Tri-Inspector.git`
+
+> **Localization package dependency**<br/>
+> Tri Inspector automatically installs [Localization package](https://docs.unity3d.com/Packages/com.unity.localization@1.0/manual/index.html) as dependency.<br/>
+> If you are not using localization package and do not want to install it, you can install a stub package instead.<br/>
+> Git URL: https://github.com/codewriter-packages/Unity-Localization-Stub-for-Tri-Inspector.git
+
 ## License
 
 Flexus Inspector is [MIT licensed](./LICENSE.md).

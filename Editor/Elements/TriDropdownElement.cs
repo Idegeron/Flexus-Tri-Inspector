@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -11,14 +11,22 @@ namespace TriInspector.Elements
     {
         private readonly TriProperty _property;
         private readonly Func<TriProperty, IEnumerable<ITriDropdownItem>> _valuesGetter;
+        private readonly bool _useAdvancedDropdown;
+        private readonly AdvancedDropdownState _dropdownState;
 
         private object _currentValue;
         private string _currentText;
+        private bool _hasNextValue;
+        private object _nextValue;
 
-        public TriDropdownElement(TriProperty property, Func<TriProperty, IEnumerable<ITriDropdownItem>> valuesGetter)
+        public TriDropdownElement(TriProperty property,
+            Func<TriProperty, IEnumerable<ITriDropdownItem>> valuesGetter,
+            bool useAdvancedDropdown = true)
         {
             _property = property;
             _valuesGetter = valuesGetter;
+            _useAdvancedDropdown = useAdvancedDropdown;
+            _dropdownState = new AdvancedDropdownState();
         }
 
         public override float GetHeight(float width)
@@ -28,6 +36,16 @@ namespace TriInspector.Elements
 
         public override void OnGUI(Rect position)
         {
+            if (_hasNextValue)
+            {
+                var nextValue = _nextValue;
+                _hasNextValue = false;
+                _nextValue = null;
+
+                _property.SetValue(nextValue);
+                GUI.changed = true;
+            }
+
             if (!_property.Comparer.Equals(_currentValue, _property.Value))
             {
                 _currentValue = _property.Value;
@@ -41,68 +59,123 @@ namespace TriInspector.Elements
 
             if (GUI.Button(position, _currentText, EditorStyles.popup))
             {
-                var dropdown = new TriDropdown(_property, _valuesGetter, new AdvancedDropdownState());
-                
-                dropdown.Show(position);
-
-                Event.current.Use();
+                if (_useAdvancedDropdown)
+                {
+                    ShowAdvancedDropdown(position);
+                }
+                else
+                {
+                    ShowDropdown(position);
+                }
             }
         }
-        
-        private class TriDropdown : AdvancedDropdown 
+
+        private void ShowDropdown(Rect position)
+        {
+            var items = _valuesGetter.Invoke(_property);
+            var menu = new GenericMenu();
+
+            foreach (var item in items)
+            {
+                var isOn = _property.Comparer.Equals(item.Value, _property.Value);
+                menu.AddItem(new GUIContent(item.Text), isOn, ChangeValue, item.Value);
+            }
+
+            menu.DropDown(position);
+        }
+
+        private void ShowAdvancedDropdown(Rect position)
+        {
+            var items = _valuesGetter.Invoke(_property);
+            var dropdown = new TriAdvancedDropdown(_dropdownState, _property, items, ChangeValue);
+            dropdown.Show(position);
+        }
+
+        private void ChangeValue(object value)
+        {
+            _nextValue = value;
+            _hasNextValue = true;
+            _property.PropertyTree.RequestRepaint();
+        }
+
+        private class TriAdvancedDropdown : AdvancedDropdown
         {
             private readonly TriProperty _property;
-            private readonly Func<TriProperty, IEnumerable<ITriDropdownItem>> _valuesGetter;
-            
-            public TriDropdown(TriProperty property, Func<TriProperty, IEnumerable<ITriDropdownItem>> valuesGetter, AdvancedDropdownState state) : base(state)
+            private readonly IEnumerable<ITriDropdownItem> _items;
+            private readonly Action<object> _onSelected;
+
+            public TriAdvancedDropdown(AdvancedDropdownState state,
+                TriProperty property,
+                IEnumerable<ITriDropdownItem> items,
+                Action<object> onSelected)
+                : base(state)
             {
                 _property = property;
-                _valuesGetter = valuesGetter;
-                
-                minimumSize = new Vector2(0, 175);
+                _items = items;
+                _onSelected = onSelected;
+                minimumSize = new Vector2(200, 300);
             }
 
             protected override AdvancedDropdownItem BuildRoot()
             {
-                var root = new AdvancedDropdownItem(_property.ValueType?.Name);
+                var root = new AdvancedDropdownItem(_property.DisplayName);
 
-                var values = _valuesGetter.Invoke(_property);
-
-                foreach (var value in values)
+                foreach (var item in _items)
                 {
-                    root.AddChild(new TriDropdownItem(value));
+                    var path = item.Text.Split('/');
+                    var parent = root;
+                    var isOn = _property.Comparer.Equals(item.Value, _property.Value);
+
+                    for (var index = 0; index < path.Length; index++)
+                    {
+                        if (index == path.Length - 1)
+                        {
+                            parent.AddChild(new TriAdvancedDropdownItem(path[index], item.Value, isOn));
+                        }
+                        else
+                        {
+#if UNITY_6000_5_OR_NEWER
+                            var child = parent.childList.FirstOrDefault(candidate => candidate.name == path[index]);
+#else
+                            var child = parent.children.FirstOrDefault(candidate => candidate.name == path[index]);
+#endif
+                            if (child == null)
+                            {
+                                child = new AdvancedDropdownItem(path[index]);
+                                parent.AddChild(child);
+                            }
+
+                            parent = child;
+                        }
+                    }
                 }
 
                 return root;
             }
-            
+
             protected override void ItemSelected(AdvancedDropdownItem item)
             {
-                if (!(item is TriDropdownItem enumItem))
+                if (item is TriAdvancedDropdownItem customItem)
                 {
-                    return;
-                }
-
-                if (enumItem.Value == null)
-                {
-                    _property.SetValue(null);
-                }
-                else
-                {
-                    _property.SetValue(enumItem.Value);
-                    _property.PropertyTree.RequestRepaint();
-                    GUI.changed = true;
+                    _onSelected?.Invoke(customItem.Value);
                 }
             }
-            
-            private class TriDropdownItem : AdvancedDropdownItem
-            {
-                public object Value { get; }
+        }
 
-                public TriDropdownItem(ITriDropdownItem triDropdownItem, Texture2D preview = null) : base(triDropdownItem.Text)
+        private class TriAdvancedDropdownItem : AdvancedDropdownItem
+        {
+            private static readonly GUIContent Checkmark =
+                EditorGUIUtility.IconContent("Checkmark") ?? GUIContent.none;
+
+            public object Value { get; }
+
+            public TriAdvancedDropdownItem(string name, object value, bool isOn) : base(name)
+            {
+                Value = value;
+
+                if (isOn)
                 {
-                    Value = triDropdownItem.Value;
-                    icon = preview;
+                    icon = Checkmark.image as Texture2D;
                 }
             }
         }
